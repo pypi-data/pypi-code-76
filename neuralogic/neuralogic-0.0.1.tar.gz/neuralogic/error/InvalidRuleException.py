@@ -1,0 +1,2 @@
+class InvalidRuleException(Exception):
+    pass
