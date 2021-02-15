@@ -1,0 +1,1 @@
+from .pyrexx_exceptions import PatternNotFound
