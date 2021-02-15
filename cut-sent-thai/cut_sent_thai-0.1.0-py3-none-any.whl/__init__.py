@@ -1,0 +1,2 @@
+from cut_sent_thai.main import cut_sent
+from cut_sent_thai.cut_sent_utils import genTrainingExamples
