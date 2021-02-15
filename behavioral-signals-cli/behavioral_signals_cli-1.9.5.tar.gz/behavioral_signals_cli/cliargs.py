@@ -1,0 +1,242 @@
+# -*- coding: utf-8 -*-
+
+# -- process the command line arguments
+# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4:
+
+"""Main module."""
+import argparse
+import os
+import os.path
+import logging
+
+from . import utils
+from . import confdict
+from .settings import (
+    DEFAULT_POLLING_WINDOW, MAX_POLLING_WINDOW,
+    DEFAULT_ASYNC_UPLOADS, MAX_ASYNC_UPLOADS,
+)
+
+
+class PollingWindowAction(argparse.Action):
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if values > MAX_POLLING_WINDOW or values < 1:
+            parser.error("Polling window values must range on [1, {}]".format(MAX_POLLING_WINDOW))
+
+        setattr(namespace, self.dest, values)
+
+class UploadsAction(argparse.Action):
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if values > MAX_ASYNC_UPLOADS or values < 1:
+            parser.error("Parallel uploads value must range on [1, {}]".format(MAX_ASYNC_UPLOADS))
+
+        setattr(namespace, self.dest, values)
+
+
+def setup_get_parser(subparsers, parser_name, function_to_call, help_message):
+    get_parser = subparsers.add_parser(parser_name, help=help_message)
+
+    get_parser.set_defaults(func=function_to_call)
+
+    get_parser.add_argument('pidFile',
+                            metavar='pidFile',
+                            type=str,
+                            help='''File with the process ids whose results will be retrieved''')
+
+    get_parser.add_argument('resultsDir',
+                            metavar='resultsDir',
+                            type=str,
+                            help='Directory where the json results will be stored')
+
+    if parser_name == "get_results_frames":
+        get_parser.add_argument('-c',
+                                '--csv',
+                                action="store_true",
+                                help='Set this to receive frame results in a csv format')
+
+def parse(get_results, get_results_frames, get_results_asr,
+          get_results_features, get_results_diarization, send_audio, dump_config):
+
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawTextHelpFormatter,
+        description='''Basic command line interface to callER.ai.'''
+    )
+
+    parser.add_argument('--config',
+                        metavar='configfile',
+                        dest='configfile',
+                        type=str,
+                        default=None,
+                        help='Specify the bsi-cli configuration file')
+
+    parser.add_argument('--stag',
+                        metavar='stag',
+                        type=str,
+                        default='default',
+                        help='Specify which section of the config file to use')
+
+    parser.add_argument('-p',
+                        '--polling',
+                        metavar='polling',
+                        type=int,
+                        default=DEFAULT_POLLING_WINDOW,
+                        action=PollingWindowAction,
+                        help='''Specifies the number of simultaneous processes to poll for results, defaults to {}'''.format(DEFAULT_POLLING_WINDOW))
+
+    parser.add_argument('-u',
+                        '--uploads',
+                        metavar='uploads',
+                        type=int,
+                        default=DEFAULT_ASYNC_UPLOADS,
+                        action=UploadsAction,
+                        help='''Specifies the number of concurrent audio uploads, defaults to {}'''.format(MAX_ASYNC_UPLOADS))
+
+    parser.add_argument('--no-async',
+                        dest='asyncmode',
+                        action='store_false',
+                        help='Specify not to use async when fetching results')
+
+    subparsers = parser.add_subparsers()
+    post_parser = subparsers.add_parser("send_audio", help='''
+    Submit audio to the Behavioral Signals API.
+
+    The required csv file needs to be formatted as follows:
+    path/to/file, number of channels, call direction,
+    agentId, agentTeam, campaign Id, calltype, calltime, timezone, ANI, tag, meta, predictionmode
+
+    Parameters can be omitted as long as the remaining columns can be read
+    unambiguously.
+    For example, one can just provide the list of paths to the audio files.
+
+    The number of channels (integer) is the number of channels in
+    the audio file, i.e., 1 if both speakers are
+    recorded in a single channel, 2 otherwise, call direction (integer) is
+    whether the call is inbound (1) or outbound (2).
+    The rest of the parameters are strings chosen on a per case
+    basis. Calltype is either "LA" (live answer) or "AM" (answering machine).
+
+    EXAMPLE CSV FILE ENTRY:
+    /home/user/audio1.wav,1,1,mike01,fw00,prod-001-42,LA,2016-04-15 20:42:31,-3,312-123-4564,urlencoded_json_meta,{},full''')
+
+    setup_get_parser(subparsers, parser_name="get_results",
+                     function_to_call=get_results, help_message='''
+    Get results from the Behavioral Signals API.
+
+    The list of process ids (as generated by a call to send_audio) and
+    the output directory, where processing results will be stored, are required arguments.''')
+
+    setup_get_parser(subparsers, parser_name="get_results_frames",
+                     function_to_call=get_results_frames, help_message='''
+    Get results at frame-level from the Behavioral Signals API.
+
+    The list of process ids (as generated by a call to send_audio) and
+    the output directory, where processing results will be stored, are required arguments.''')
+
+    setup_get_parser(subparsers, parser_name="get_results_asr",
+                     function_to_call=get_results_asr, help_message='''
+    Get ASR results from the Behavioral Signals API.
+
+    The list of process ids (as generated by a call to send_audio) and
+    the output directory, where processing results will be stored, are required arguments.''')
+
+    setup_get_parser(subparsers, parser_name="get_results_features",
+                     function_to_call=get_results_features, help_message='''
+    Get results at feature-level from the Behavioral Signals API.
+
+    The list of process ids (as generated by a call to send_audio) and
+    the output directory, where processing results will be stored, are required arguments.''')
+
+    setup_get_parser(subparsers, parser_name="get_results_diarization",
+                     function_to_call=get_results_diarization, help_message='''
+    Get results for diarization from the Behavioral Signals API.
+
+    The list of process ids (as generated by a call to send_audio) and
+    the output directory, where processing results will be stored, are required arguments.''')
+
+    post_parser.set_defaults(func=send_audio)
+    post_parser.add_argument('csvFile',
+                             metavar='csvFile',
+                             type=str,
+                             help='List of files to be submitted to the API')
+    post_parser.add_argument('pidFile',
+                             metavar='pidFile',
+                             type=str,
+                             help='''
+            File where the list of API process ids will be stored for the files which
+            have been successfully submitted''')
+
+    post_parser.add_argument('--tag',
+                             metavar='tag',
+                             type=str,
+                             default='fuploader',
+                             help='A tag serving as identifier for the specific dataset to be processed')
+
+    post_parser.add_argument('--nchannels',
+                             metavar='nchannels',
+                             type=int,
+                             default=1,
+                             help='The number of channels in the audio files, if that is common for all uploaded files')
+
+    parser.add_argument('--log',
+                        metavar='logLevel',
+                        default='WARNING',
+                        type=str,
+                        help='Logging level: error, warning, debug, info')
+
+    parser.add_argument('--apiurl',
+                        dest='apiurl',
+                        default=None,
+                        type=str,
+                        help='Oliver service API url')
+
+    dump_parser = subparsers.add_parser("config", help='show configuration')
+    dump_parser.set_defaults(func=dump_config)
+
+    # now parse the args
+    args = parser.parse_args()
+
+    numericLogLevel = getattr(logging, args.log.upper(), None)
+    if not isinstance(numericLogLevel, int):
+        raise ValueError('Invalid logging level: %s' % args.log)
+
+    logging.basicConfig(level=numericLogLevel)
+
+    requests_log = logging.getLogger("requests.packages.urllib3")
+    requests_log.setLevel(numericLogLevel)
+    requests_log.propagate = True
+
+    opts = getConfiguration(args)
+
+    return opts
+
+# -- read in the config file and merge its settings with the
+# -- internal defaults command line and the environment
+
+
+def getConfiguration(args):
+    cliDict = vars(args)  # -- convert args to a dict
+    # -- setup the configuration dictionary
+    internalDict = {
+        # -- default SERVICE & webapp URL's
+        'apiurl': "https://api.behavioralsignals.com",
+        'webappurl': "http://demo.behavioralsignals.com",
+    }
+
+    envDict = {
+        'apiid': os.environ.get('BEST_API_ID'),
+        'apitoken': os.environ.get('BEST_API_TOKEN'),
+    }
+
+    sdict = confdict.merge(
+        internalDict=internalDict,
+        envDict=envDict,
+        cliDict=cliDict,
+        configFile=args.configfile,
+        tag=args.stag,
+        sectionsName="sections",
+        configs=["bsi-cli.conf", "~/.bsi-cli.conf"]
+    )
+
+    logging.debug("configuration: {}".format(utils.ppf(sdict)))
+    return sdict
