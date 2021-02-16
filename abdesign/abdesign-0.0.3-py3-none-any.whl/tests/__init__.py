@@ -1,0 +1,1 @@
+from abdesign.tests.igobject_test import *
