@@ -1,0 +1,1 @@
+from .justgood import imjustgood
