@@ -1,0 +1,25 @@
+from enum import Enum
+
+
+class GRADSTATUS(Enum):
+    GRADS_NOT_FOUND = -1
+    VALID_GRADS = 1
+    ONE_BVAL = 2
+    ONE_BVAL_SINGLE_IMAGE = 3
+    ONE_BVAL_MULTI_IMAGE = 4
+    BVALS_TOO_HIGH = 5
+    BVALS_HAS_NAN = 6
+    DTI_ONE_DIRECTION = 7
+
+
+class DWITYPE(Enum):
+    UNKNOWN = -1
+    DWI_SINGLE_TRACE = 1
+    DWI_MULTI_TRACE = 2
+    DWI_MULTI_B_VECS = 3
+    DTI = 4
+    DWI_TRACE_NONZERO_BVAL = 5
+    DWI_MULTI_B_VECS_AND_TRACE = 6
+
+
+MAX_B_VALUE = 5000
