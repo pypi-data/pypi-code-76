@@ -1,0 +1,2 @@
+SEARCH_TYPE_GRID = 'grid'
+SEARCH_TYPE_HYPEROPT = 'hyperopt'
