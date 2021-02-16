@@ -1,0 +1,1 @@
+print({'a': 1}.get('a') is not None)
