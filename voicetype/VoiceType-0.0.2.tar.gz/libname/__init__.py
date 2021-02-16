@@ -1,0 +1,1 @@
+from VoiceType import start
