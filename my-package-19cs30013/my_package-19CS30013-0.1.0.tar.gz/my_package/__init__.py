@@ -1,0 +1,1 @@
+from my_package.model import ObjectDetectionModel
