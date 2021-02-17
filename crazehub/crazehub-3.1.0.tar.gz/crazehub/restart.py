@@ -1,0 +1,1 @@
+from crazehub import __init__
