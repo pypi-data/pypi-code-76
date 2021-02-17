@@ -1,0 +1,4 @@
+
+
+DRIVERS = {}
+DRIVERS["piface"] = ["PiFaceDigital"]
