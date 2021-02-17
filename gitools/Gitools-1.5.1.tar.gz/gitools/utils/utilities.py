@@ -1,0 +1,83 @@
+import os
+import textwrap
+import subprocess
+
+
+class Utilities:
+    cwd = os.getcwd()
+
+    @staticmethod
+    def ellipsis(input, length):
+        return textwrap.shorten(input, width=length, placeholder="...")
+
+    @staticmethod
+    def gitExisted():
+        try:
+            process = subprocess.Popen(
+                ["git"],
+                stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+            )
+            _, err = process.communicate()
+            if not err:
+                return True
+        except:
+            pass
+
+        return False
+
+    @staticmethod
+    def findShell():
+        try:
+            process = subprocess.Popen(
+                ["bash"],
+                stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+            )
+            _, err = process.communicate()
+            if not err:
+                return ["bash"]
+        except:
+            pass
+
+        try:
+            process = subprocess.Popen(
+                ["sh"],
+                stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+            )
+            _, err = process.communicate()
+            if not err:
+                return ["sh"]
+        except:
+            pass
+
+        try:
+            process = subprocess.Popen(
+                ["where", "git"],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,
+            )
+            out, err = process.communicate()
+            if not err:
+                out = out.decode("utf-8")
+                out = out.split("\n")[0].strip()
+                out = os.path.dirname(out)
+                shellPath = os.path.join(out, "..", "usr", "bin", "bash.exe")
+                if os.path.exists(shellPath):
+                    return [os.path.abspath(shellPath)]
+                shellPath = os.path.join(out, "..", "usr", "bin", "sh.exe")
+                if os.path.exists(shellPath):
+                    return [os.path.abspath(shellPath)]
+        except:
+            pass
+
+        return []
+
+    @staticmethod
+    def clearConsole():
+        os.system("cls" if os.name == "nt" else "clear")
