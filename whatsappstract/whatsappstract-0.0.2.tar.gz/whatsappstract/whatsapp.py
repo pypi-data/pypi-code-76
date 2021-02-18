@@ -1,0 +1,202 @@
+import logging
+
+from selenium import webdriver
+import datetime
+import re
+import time
+from urllib.parse import parse_qs
+from urllib.parse import urlparse
+
+import dateparser
+from langdetect import detect
+from selenium import webdriver
+from selenium.common.exceptions import WebDriverException, NoSuchElementException
+
+
+class Whatsapp():
+    '''A WhatsApp scraper without a proper docstring'''
+
+    def __init__(self, geckopath=None):
+        opts = dict(executable_path=geckopath) if geckopath else {}
+        try:
+            self.browser = webdriver.Firefox(**opts)
+        except WebDriverException:
+            logging.error("Geckodriver not found. Either copy the geckodriver to your path or specify its location")
+            raise
+        self.browser.implicitly_wait(5)
+        self.browser.get("https://web.whatsapp.com/")
+
+    def get_qr(self) -> str:
+        c, = self.browser.find_elements_by_css_selector("canvas")
+        return c.screenshot_as_base64
+
+    def wait_to_be_ready(self):
+        while True:
+            try:
+                self.browser.find_element_by_xpath('//h1')
+                return True
+            except NoSuchElementException:
+                logging.info("Seems that WhatsApp is not ready yet, wait for a second...")
+                time.sleep(1)
+
+    def scrape_links(self):
+        '''Yields the *links* per chat that are shared in the Whatsapp scraper instance'''
+
+        # Get all the chats, sort them by date to know which one is first/last and save it into a list
+        chats = []
+        names = []
+        n = 0
+
+        self.wait_to_be_ready()
+
+        maintext = self.browser.find_element_by_xpath('//h1').text
+        language = detect(maintext)
+        while True:
+            # Get language
+            # Get names of chats
+            a = self.browser.find_elements_by_xpath("//div[@id='pane-side']//span[@title and @dir='auto']")
+            new_chats = []
+            for item in a:
+                try:
+                    # Get date of chat (two different options depending on whether it is a date/time)
+                    try:
+                        x = item.find_element_by_xpath('../following-sibling::div')
+                    except:
+                        x = item.find_element_by_xpath('../../following-sibling::div')
+                except:
+                    pass
+                # Parse the date (is done automatically)
+                try:
+                    parsed_date = dateparser.parse(x.text, settings={'DATE_ORDER': 'DMY'})
+                except:
+                    parsed_date = ""
+                # Put all the info (xpath element, name of chat, date) in one list
+                try:
+                    new_chats.append((item, item.text, parsed_date))
+                except:
+                    pass
+            # Sort by date, only keep the new chats
+            new_chats.sort(key=lambda x: x[2], reverse=True)
+            new_chats = [x for x in new_chats if x not in chats]
+            new_chats.sort(key=lambda x: x[2], reverse=True)
+            new_names = [x[1] for x in new_chats]
+
+            # For every chat get all the links (including who sent them when)
+
+            for c in new_chats:
+                links = []
+                c[0].click()
+                try:
+                    x = self.browser.find_element_by_xpath("//div[@id = 'main']/header/div/div/img")
+                except:
+                    x = self.browser.find_element_by_xpath("//div[@id = 'main']/header//*[@dir = 'auto']")
+                x.click()
+                time.sleep(2)
+                if language == 'de':
+                    linktext = self.browser.find_element_by_xpath("//*[text() = 'Medien, Links und Dokumente']")
+                elif language == 'nl':
+                    linktext = self.browser.find_element_by_xpath(
+                        "//*[text() = 'Media, links en documenten']")  # was "en docs", maar dat klopt iig bij mij niet
+                elif language == 'en':
+                    linktext = self.browser.find_element_by_xpath("//*[text() = 'Media, Links and Docs']")
+                else:
+                    logging.error('language not supported')
+                    self.browser.quit()
+                linktext.click()
+                time.sleep(2)
+                linktext2 = self.browser.find_element_by_xpath("//*[text() = 'Links']")
+                linktext2.click()
+                time.sleep(5)
+                # Get all of the links, difference between inlinks (other people writing) and outlinks (own messages)
+                while True:
+                    inlinks = self.browser.find_elements_by_xpath(
+                        "//*[@data-list-scroll-container = 'true']//*[contains(@class,'message-in')]//a")
+                    outlinks = self.browser.find_elements_by_xpath(
+                        "//*[@data-list-scroll-container = 'true']//*[contains(@class,'message-out')]//a")
+                    # Scroll to get all the links
+                    if not inlinks:
+                        newlinks_in = []
+                    else:
+                        last_link_in = inlinks[-1]
+                        self.browser.execute_script("arguments[0].scrollIntoView();", last_link_in)
+                        time.sleep(2)
+                        newlinks_in = self.browser.find_elements_by_xpath(
+                            "//*[@data-list-scroll-container = 'true']//*[contains(@class,'message-in')]//a")
+                    if not outlinks:
+                        newlinks_out = []
+                    else:
+                        last_link_out = outlinks[-1]
+                        self.browser.execute_script("arguments[0].scrollIntoView();", last_link_out)
+                        time.sleep(2)
+                        newlinks_out = self.browser.find_elements_by_xpath(
+                            "//*[@data-list-scroll-container = 'true']//*[contains(@class,'message-out')]//a")
+                    if (set(newlinks_in).issubset(inlinks)) and (set(newlinks_out).issubset(outlinks)):
+                        break
+                time.sleep(2)
+                # Get message around link and sender (if from group)
+                messages_in = []
+                messages_out = []
+                for link in inlinks:
+                    link_final = link.get_attribute('href')
+                    link_final = anonymize_url(link_final, origin='in')
+                    text = link.find_elements_by_xpath('..')
+                    text = [re.sub(r'@\d+', '', t.text) for t in text]
+                    sender = link.find_elements_by_xpath(
+                        '../../../../preceding-sibling::div/span[@dir = "auto"]|../preceding-sibling::div/div/span[@dir = "auto"]')
+                    sender = [hash(s.text) for s in sender]
+                    message = {"link": link_final, "text": text, "sender": sender}
+                    messages_in.append(message)
+                for link in outlinks:
+                    link_final = link.get_attribute('href')
+                    link_final = anonymize_url(link_final, origin='out')
+                    text = link.find_elements_by_xpath('..')
+                    text = [re.sub(r'@\d+', '', t.text) for t in text]
+                    message = {"link": link_final, "text": text}
+                    messages_out.append(message)
+                yield {'chatname': hash(c[1]), "date": c[2], "messages_in": messages_in, "messages_out": messages_out}
+
+            # Scroll down to get the next group of chats
+            if n == 0:
+                chats = new_chats
+                names = new_names
+                for i in range(-1, (-len(new_chats) - 1), -1):
+                    try:
+                        self.browser.execute_script("arguments[0].scrollIntoView();", new_chats[i][0])
+                        time.sleep(2)
+                        break
+                    except:
+                        pass
+            else:
+                if set(new_names).issubset(names):
+                    break
+                else:
+                    chats.extend(x for x in new_chats if x not in chats)
+                    chats.sort(key=lambda x: x[2], reverse=True)
+                    names = [x[1] for x in chats]
+                    for i in range(-1, (-len(new_chats) - 1), -1):
+                        try:
+                            self.browser.execute_script("arguments[0].scrollIntoView();", new_chats[i][0])
+                            time.sleep(2)
+                            break
+                        except:
+                            pass
+            n += 1
+            if n == 1:
+                break
+
+    def quit_browser(self):
+        self.browser.quit()
+
+    def blur(self):
+        self.browser.execute_script("document.getElementsByTagName('body')[0].style.filter = 'blur(30px)';")
+
+
+
+
+def anonymize_url(link, origin):
+    base = urlparse(link)
+    stripped_link = base.scheme + '://' + base.netloc + base.path
+    queries = parse_qs(base.query)
+    # Get search queries from search engines (Google, Bing, Yahoo, DuckDuckGo, Ecosia), Youtube and large Dutch media providers
+    queries_keep = {k: v for k, v in queries.items() if k in ['v', 'q', 'p', 's', 'query', 'keyword', 'term']}
+    return ({"link": stripped_link, "query": queries_keep})
