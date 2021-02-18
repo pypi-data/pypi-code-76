@@ -1,0 +1,3 @@
+
+class InvalidOffsetException(Exception):
+    pass
