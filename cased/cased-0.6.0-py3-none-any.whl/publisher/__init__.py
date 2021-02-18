@@ -1,0 +1,1 @@
+from cguard.publisher.trails_publisher import TrailsPublisher
