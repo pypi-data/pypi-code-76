@@ -1,0 +1,2 @@
+class CandidAuthenticationError(Exception):
+    pass
