@@ -1,0 +1,73 @@
+"""Creates Long Short Term Memory (LSTM) model."""
+import tensorflow as tf
+
+
+def LSTM(
+    input_shape,
+    output_size,
+    loss,
+    optimizer,
+    recurrent_units=[64],
+    recurrent_dropout=0,
+    return_sequences=False,
+    dense_layers=[],
+    dense_dropout=0,
+    dense_activation="linear",
+    out_activation="linear",
+):
+    """Long Short Term Memory (LSTM).
+
+    Args:
+        input_shape (tuple): Shape of the input data
+        output_size (int): Number of neurons of the last layer.
+        loss (tf.keras.Loss): Loss to be use for training.
+        optimizer (tf.keras.Optimizer): Optimizer that implements theraining algorithm.
+        recurrent_units (list, optional): Number of recurrent units for each LSTM layer. 
+            Defaults to [64].
+        recurrent_dropout (int between 0 and 1, optional): Fraction of the input units to drop.
+            Defaults to 0.
+        return_sequences (bool, optional): Whether to return the last output in the output sequence, or the full sequence. 
+            Defaults to False.
+        dense_layers (list, optional): List with the number of hidden neurons for each 
+            layer of the dense block before the output. 
+            Defaults to [].
+        dense_dropout (float between 0 and 1, optional): Fraction of the dense units to drop.
+            Defaults to 0.0.
+        dense_activation (tf activation function, optional): Activation function of the dense
+            layers after the convolutional block.
+            Defaults to "linear".
+        out_activation (tf activation function, optional): Activation of the output layer.
+            Defaults to "linear".
+
+    Returns:
+        tf.keras.Model: LSTM model
+    """
+    input_shape = input_shape[-len(input_shape) + 1 :]
+    inputs = tf.keras.layers.Input(shape=input_shape)
+
+    x = inputs
+    if len(input_shape) < 2:
+        x = tf.keras.layers.Reshape((inputs.shape[1], 1))(x)
+
+    # LSTM layers
+    for i, u in enumerate(recurrent_units):
+        return_sequences_tmp = (
+            return_sequences if i == len(recurrent_units) - 1 else True
+        )
+        x = tf.keras.layers.LSTM(
+            u, return_sequences=return_sequences_tmp, dropout=recurrent_dropout
+        )(x)
+
+    # Dense layers
+    if return_sequences:
+        x = tf.keras.layers.Flatten()(x)
+    for hidden_units in dense_layers:
+        x = tf.keras.layers.Dense(hidden_units, activation=dense_activation)(x)
+        if dense_dropout > 0:
+            x = tf.keras.layers.Dropout(dense_dropout)(x)
+    x = tf.keras.layers.Dense(output_size, activation=out_activation)(x)
+
+    model = tf.keras.Model(inputs=inputs, outputs=x)
+    model.compile(optimizer=optimizer, loss=loss)
+
+    return model
