@@ -1,0 +1,70 @@
+import click
+import logging
+import shutil
+import os
+import lmctl.cli.lifecycle as lifecycle_cli
+import lmctl.project.package.core as pkgs
+from lmctl.cli.format import determine_format_class
+
+logger = logging.getLogger(__name__)
+
+
+@click.group(help='Commands for managing a package built from an Assembly/Resource Project')
+def pkg():
+    logger.debug('Package Management')
+
+
+PUSH_HEADER = 'Push'
+
+
+@pkg.command(help='Push a previously built package to a LM environment')
+@click.argument('package')
+@click.argument('environment')
+@click.option('--config', default=None, help='configuration file')
+@click.option('--armname', default='defaultrm', help='if using ansible-rm packaging the name of ARM to upload Resources to must be provided')
+@click.option('--pwd', default=None, help='password used for authenticating with LM (only required if LM is secure and a username has been included in the environment config)')
+@click.option('--autocorrect', default=False, is_flag=True, help='allow validation warnings and errors to be autocorrected if supported')
+def push(package, environment, config, armname, pwd, autocorrect):
+    """Pushes an existing Assembly/Resource package to a target LM (and ARM) environment"""
+    logger.debug('Pushing package at: {0}'.format(package))
+    pkg = lifecycle_cli.open_pkg(package)
+    try:
+        env_sessions = lifecycle_cli.build_sessions_for_pkg(pkg.meta, environment, pwd, armname, config)
+        controller = lifecycle_cli.ExecutionController(PUSH_HEADER)
+        controller.start(package)
+        exec_push(controller, pkg, env_sessions, allow_autocorrect=autocorrect)
+    finally:
+        cleanup_pkg(pkg)
+    controller.finalise()
+
+
+@pkg.command(help='Inspect a package')
+@click.argument('package')
+@click.option('--config', default=None, help='configuration file')
+@click.option('-f', '--format', 'output_format', default='yaml', help='format of output [yaml, json]')
+def inspect(package, config, output_format):
+    logger.debug('Inspecting package at: {0}'.format(package))
+    pkg = lifecycle_cli.open_pkg(package)
+    try:
+        inspection_report = pkg.inspect()
+        result = format_inspection_report(output_format, inspection_report)
+        click.echo(result)
+    finally:
+        cleanup_pkg(pkg)
+    
+def cleanup_pkg(pkg):
+    if os.path.exists(pkg.tree.root_path):
+        shutil.rmtree(pkg.tree.root_path)
+
+def format_inspection_report(output_format, inspection_report):
+    inspection_report_tpl = inspection_report.to_dict()
+    formatter_class = determine_format_class(output_format)
+    formatter = formatter_class()
+    result = formatter.convert_element(inspection_report_tpl)
+    return result
+
+def exec_push(controller, pkg, env_sessions, allow_autocorrect=False):
+    push_options = pkgs.PushOptions()
+    push_options.allow_autocorrect = allow_autocorrect
+    push_options.journal_consumer = controller.consumer
+    return controller.execute(pkg.push, env_sessions, push_options)
