@@ -1,0 +1,6 @@
+__author__ = "Nick Landers, NetSPI"
+__copyright__ = "2021 NetSPI"
+__email__ = "rtt.support@netspi.com"
+__license__ = "GPL3"
+__title__ = "rtt-sdk"
+__version__ = "0.1.1"
