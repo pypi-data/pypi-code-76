@@ -1,0 +1,27 @@
+#!/usr/bin/env python
+#
+# Copyright (C) 2011-2020 Ryan Galloway (ryan@rsgalloway.com)
+#
+# This module is part of Shotman and is released under
+# the BSD License: http://www.opensource.org/licenses/bsd-license.php
+
+from distutils.core import setup
+from pyseq import __version__
+
+from os import path
+this_directory = path.abspath(path.dirname(__file__))
+with open(path.join(this_directory, 'README.rst'), encoding='utf-8') as f:
+    long_description = f.read()
+
+setup(
+    name='pyseq',
+    version=__version__,
+    description='Compressed Sequence Strings',
+    long_description=long_description,
+    long_description_content_type='text/x-rst',
+    author='Ryan Galloway',
+    author_email='ryan@rsg.io',
+    url='http://github.com/rsgalloway/pyseq',
+    py_modules=['pyseq'],
+    scripts = ['lss']
+)
