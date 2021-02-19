@@ -1,0 +1,2 @@
+class BakplaneException(Exception):
+    pass
