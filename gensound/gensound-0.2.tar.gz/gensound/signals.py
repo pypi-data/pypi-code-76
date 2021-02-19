@@ -1,0 +1,531 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Aug 17 21:41:28 2019
+
+@author: Dror
+"""
+
+import copy
+
+import numpy as np
+
+from gensound.utils import isnumber, num_samples
+from gensound.musicTheory import read_freq
+
+from gensound.transforms import Transform, TransformChain, Amplitude, Slice, Combine, BiTransform
+from gensound.curve import Curve
+from gensound.audio import Audio
+from gensound.io import WAV_to_Audio
+
+#CHANNEL_NAMES = {"L":0, "R":1}
+
+
+__all__ = ["Signal", "Silence", "Step", "WhiteNoise", "Sine", "Triangle",
+           "Square", "Sawtooth", "Raw", "WAV"]
+
+class Signal:
+    def __init__(self):
+        self.transforms = []
+    
+    #@abstractmethod ???
+    def generate(self, sample_rate):
+        """
+        this is the part the generates the basic signal building block
+        ####should return 2d np.ndarray
+        should return 1d np.ndarray, the dims are fixed later...
+        not sure if good
+        TODO
+        new: can also return Audio if there is a need;
+        but generally should be np.ndarray
+        """
+        return np.zeros(shape=(1,0))
+    
+    def realise(self, sample_rate):
+        """ returns Audio instance.
+        parses the entire signal tree recursively
+        """
+        audio = self.generate(sample_rate)
+        
+        if not isinstance(audio, Audio):
+            audio = Audio(sample_rate).from_array(audio)
+    
+        for transform in self.transforms:
+            transform.realise(audio=audio)
+            
+        return audio
+    
+    mixdown = realise # TODO consider keeping just 1
+    
+    def play(self, sample_rate=44100, byte_width=2, max_amplitude=1):
+        audio = self.realise(sample_rate)
+        audio.play(byte_width)
+    
+    def export(self, filename, sample_rate=44100, byte_width=2, max_amplitude=1):
+        """
+        0 < max_amplitude <= 1 implies stretching the amplitudes
+        so they would hit absolute value of max_amplitude.
+        otherwise, max_amplitude = None implies not to touch the amplitudes
+        as given, unless they exceed 1 in which case we shrink everything proportionally.
+        TODO not sure this behaviour is optimal
+        """
+        audio = self.realise(sample_rate)
+        audio.to_WAV(filename, byte_width)
+        
+    
+    #####################
+    def num_samples(self, sample_rate):
+        return num_samples(self.duration, sample_rate)
+    
+    def sample_times(self, sample_rate):
+        stop_time = self.duration/1000 if isinstance(self.duration, float) \
+            else self.duration/sample_rate
+        return np.linspace(start=0, stop=stop_time, num=self.num_samples(sample_rate), endpoint=False)
+    
+        
+    def copy(self):
+        """
+        creates an identical signal object.
+        """
+        # TODO perhaps deepcopy should be overridden to be thinner and faster,
+        # since it is performed often
+        return copy.deepcopy(self)
+    
+    @staticmethod
+    def concat(*args):
+        return Sequence(*args)
+    
+    @staticmethod
+    def mix(args):
+        # we really want to use #reduce(, args) instead
+        # but the question is what should be the 1st argument?
+        return sum(args)
+    
+    ####### sound operations ########
+    
+    def _amplitude(self, number):
+        assert isnumber(number)
+        return self*Amplitude(number)
+    
+    def _apply(self, transform):
+        assert not isinstance(transform, BiTransform), "can't apply BiTransform, use concat."
+        
+        if transform is None:
+            return self
+        
+        if not isinstance(transform, Transform): # TODO change to if isnumber(transform)
+            return self._amplitude(transform)
+        
+        s = self.copy() # TODO is this needed?
+        # it is, so we can reuse the same base signal multiple times
+        if isinstance(transform, TransformChain):
+            s.transforms.extend(transform.transforms)
+        else:
+            s.transforms.append(transform)
+        return s
+    
+    def _concat(self, other):
+        # TODO why is this before mix?
+        # TODO consider enabling for negative other,
+        # thus shifting a sequence forward(backward? Chinese) in time
+        # TODO possibly better way to implement than using Silence
+        if isnumber(other):
+            other = Silence(duration=other)
+            
+        s = Sequence()
+        # use isinstance(self, Sequence) instead? more semantic
+        # TODO write this as overloading of Sequence operators instead?
+        if not self.transforms and isinstance(self, Sequence):
+            s.sequence += self.sequence
+        else:
+            s.sequence += [self]
+        
+        if isinstance(other, BiTransform): # if concatting BiTransform
+            s.sequence[-1] = s.sequence[-1]._apply(other.L)
+            s.sequence += [other.R]
+            return s
+        
+        if isinstance(s.sequence[-1], Transform): # if coming out of BiTransform
+            t = s.sequence.pop()
+        else:
+            t = None
+        
+        if not other.transforms and isinstance(other, Sequence):
+            other.sequence[0] = other.sequence[0]._apply(t)
+            s.sequence += other.sequence
+        else:
+            s.sequence += [other._apply(t)]
+        
+        return s
+    
+    def _mix(self, other):
+        # mixing with constant number is interpreted as DC
+        # TODO use @singledispatchmethod for this?
+        if isnumber(other):
+            other = other*DC(duration=self.duration)
+        
+        s = Mix()
+        
+        if not self.transforms and isinstance(self, Mix):
+            s.signals += self.signals
+        else:
+            s.signals += [self]
+        
+        if not other.transforms and isinstance(other, Mix):
+            s.signals += other.signals
+        else:
+            s.signals += [other]
+        
+        return s
+    
+    def _repeat(self, number):
+        # repeats this signal several times in a row
+        assert isinstance(number, int)
+        return Signal.concat(*[self]*number)
+    
+    def _print_nice(self):
+        if isinstance(self, Sequence):
+            res = "[{}]".format(" + ".join([str(signal) for signal in self.sequence]))
+        elif isinstance(self, Mix):
+            res = "({})".format(" + ".join([str(signal) for signal in self.signals]))
+        else:
+            res = str(type(self).__name__)
+        
+        res += "" if not self.transforms else "*({})".format(",".join([str(transform) for transform in self.transforms]))
+        return res
+    
+    ####### overloading operators #######
+    
+    def __str__(self):
+        return self._print_nice()
+    
+    def __pow__(self, other):
+        return self._repeat(other)
+    
+    def __rmul__(self, other):
+        """ multiplication from the left is only legal for numbers, not for transforms"""
+        return self._amplitude(other)
+    
+    def __mul__(self, other):
+        """
+        signals can be multiplied on the right by both floats and transforms
+        """
+        return self._apply(other)
+    
+    def __radd__(self, other):
+        if other == 0:
+            return self
+        
+        raise TypeError("Signal can only be added to other signals, or to 0.")
+    
+    def __add__(self, other):
+        """
+        create empty signal list.
+        for each operand, if it is transformed or a single signal,
+        append it to the list.
+        otherwise, it is an untransformed list, simply extend the signal list.
+        """
+        return self._mix(other)
+    
+    def __sub__(self, other):
+        return self._mix(-other)
+    
+    def __neg__(self):
+        return self._amplitude(-1.0)
+    
+    def __or__(self, other):
+        """Overloading concat."""
+        return self._concat(other)
+    
+    def __ror__(self, other):
+        if other == 0:
+            return self
+        
+        if isnumber(other):
+            return Silence(duration=other)._concat(self)
+        
+        raise TypeError("Signal can only be concatted to other signals, or to 0.")
+    
+    #########
+    @staticmethod
+    def __subscripts(arg):
+        """ Accepts first arg from __get/setitem__ and expands it to include
+        both channel as well as time dimension.
+        
+        args[1] is relevant only for __setitem__.
+        
+        if args[0] = int,
+            then it is taken to refer to a track, e.g.:
+                signal[1] = Sine()
+                # channel 1 is now a sine wave
+        
+        if args[0] = slice of ints,
+            then it is taken to refer to tracks, e.g.:
+                signal = signal[1::-1] # switches L/R
+        
+        if args[0] = slice of floats,
+            then it is taken to refer to time span only:
+                signal[3e3:4e3] *= Reverse()
+                # reverse the content in the 3rd second
+        
+        if args[0] = tuple,
+            then args[0][0] refers to channel,
+            and args[0][1] refers to timespan:
+                signal[1:3,10e3:15e3] *= Fade()
+                # Applies fade in time 10s-15s only on channels 1, 2
+        
+        in addition: if the channel is an int (not slice),
+            transform it into an equivalent slice
+        """
+        assert isinstance(arg, (tuple, int, slice))
+        
+        if isinstance(arg, tuple):
+            assert len(arg) == 2, "improper amount of subscripts"
+            assert isinstance(arg[1], slice), "time may only be described as ranges"
+            if isinstance(arg[0], int):
+                arg = (slice(arg[0], arg[0]+1), arg[1])
+            assert isinstance(arg[0], slice)
+            return arg
+        if isinstance(arg, int):
+            return (slice(arg, arg+1), slice(None))
+        if isinstance(arg, slice):
+            # TODO beware of illegal values
+            # if both are None, interpret as channels
+            if isinstance(arg.start, (int, type(None))) and isinstance(arg.stop, (int, type(None))):
+                # slice of channels
+                return (arg, slice(None))
+            if isinstance(arg.start, (float, type(None))) and isinstance(arg.stop, (float, type(None))):
+                # slice of time
+                return (slice(None), arg)
+            
+            raise TypeError("Slice can't be interpreted: inconsistent types")
+        
+        raise TypeError("Argument not acceptable as subscript")
+    
+    def __getitem__(self, *args):
+        # TODO deal with out-of-bound values for channels and time
+        # for now we enable out-of-bound channels when starting at 0 and audio is mono
+        return self.copy()*Slice(*Signal.__subscripts(args[0]))
+    
+    def __setitem__(self, *args):
+        assert isinstance(args[1], Signal)
+        # TODO deal with out-of-bound values for channels and time
+        # TODO should copy self first?
+        # TODO use self.apply instead?
+        self.transforms.append(Combine(*Signal.__subscripts(args[0]), args[1]))
+    
+    # def __getattr__(self, name):
+    #     # so we can do signal.L to access left channel (0)
+    #     if name in CHANNEL_NAMES:
+    #         return self[CHANNEL_NAMES[name]]
+        # problems: we need to define self.L differently when its setattr vs. getagttr
+        # and also avoid recursion when using setattr
+    #     raise AttributeError
+    
+    def __iter__(self):
+        # can't iterate over channels since they're not known until mixdown
+        # (transforms affect them during realise)
+        # this is to prevent sum(signal) as a way to mix into mono
+        # instead of getting into a loop (didn't go deep into that one)
+        # 
+        raise TypeError("May not iterate over Signal objects, as channel number is unknown prior to mixdown.")
+
+#### other "high-level" signals ##############################3
+
+class Mix(Signal):
+    """
+    a list of signals to be mixed together
+    (AKA "internal node" of the mix tree)
+    """
+    def __init__(self, *signals):
+        super().__init__()
+        self.signals = list(signals)
+    
+    def generate(self, sample_rate):
+        audio = Audio(sample_rate)
+        
+        for signal in self.signals:
+            audio += signal.realise(sample_rate)
+        
+        return audio
+
+class Sequence(Signal):
+    """
+    a list of signals to be placed one after the other
+    """
+    def __init__(self, *sequence):
+        super().__init__()
+        self.sequence = list(sequence)
+    
+    def generate(self, sample_rate):
+        audio = Audio(sample_rate)
+        
+        for signal in self.sequence:
+            audio.concat(signal.realise(sample_rate))
+            # TODO assymetric with Mix since we don't overload audio.concat
+        
+        return audio
+
+#### particular signals #########
+
+class Silence(Signal):
+    def __init__(self, duration=5e3):
+        super().__init__()
+        self.duration = duration
+    
+    def generate(self, sample_rate):
+        return np.zeros(self.num_samples(sample_rate), dtype=np.float64)
+
+class Step(Signal): # Impulse? DC?
+    def __init__(self, duration=1):
+        super().__init__()
+        self.duration = duration
+    
+    def generate(self, sample_rate):
+        return np.ones((self.num_samples(sample_rate),), dtype=np.float64)
+
+DC = Step
+
+## TODO step with frequency
+
+class WhiteNoise(Signal):
+    def __init__(self, duration=5e3):
+        # TODO add seed argument?
+        super().__init__()
+        self.duration = duration
+    
+    def generate(self, sample_rate):
+        # TODO this may have non-zero DC!
+        return 2*np.random.rand(self.num_samples(sample_rate)) - 1
+
+# TODO add grey, pink noise.
+
+
+#### simple oscillators
+
+
+class Sine(Signal): # oscillator? pitch? phaser?
+    wave = np.sin
+    
+    def __init__(self, frequency=220, duration=5e3):
+        # TODO add initial phase argument (for completeness; also for potential phase inference)
+        super().__init__()
+        self.frequency = read_freq(frequency)
+        self.duration = duration
+        # TODO if frequency is a curve then duration should be derived from it?
+        # or ignored?
+        
+    def generate(self, sample_rate):
+        # TODO currently the [:-1] after the integral is needed,
+        # otherwise it would be one sample too long. perhaps there is more elegant solution,
+        # maybe passing an argument telling it to lose the last sample,
+        # or better, having CompoundCurve give the extra argument telling its
+        # children NOT to lose the last sample
+        if isinstance(self.frequency, Curve):
+            return type(self).wave(2*np.pi * self.frequency.integral(sample_rate)[:-1])
+        return type(self).wave(2*np.pi * self.frequency * self.sample_times(sample_rate))
+
+class Triangle(Sine): # TODO start at 0, not 1
+    wave = lambda phase: 2*np.abs((phase % (2*np.pi) - np.pi))/np.pi - 1
+    
+class Square(Sine):
+    wave = lambda phase: ((phase % (2*np.pi) < np.pi)*2 - 1).astype(np.float64)
+
+class Sawtooth(Sine):
+    wave = lambda phase: (phase % (2*np.pi))/np.pi-1
+
+# TODO sweepsine
+
+### raw audio signals
+
+class Raw(Signal):
+    cache = {}
+    """
+    Keep track of when the audio is copied;
+    we should probably use a view until we start applying transforms.
+    I.e. this object should only keep a view, and on generate it should copy.
+    """
+    def __init__(self, audio=None):
+        super().__init__()
+        
+        if audio != None:
+            if not hasattr(self, "key"):
+                self.key = len(Raw.cache)
+            
+            if self._key() not in Raw.cache:
+                Raw.cache[self._key()] = audio
+        
+    def _key(self): # TODO __key__ ?
+        return type(self).__name__ + ":" + str(self.key)
+    
+    def resample(self, sample_rate=44100, method="quadratic"):
+        self.audio._resample(sample_rate, method)
+        return self # so the user can type WAV("a.wav").resample(44100)*Transform() etc.
+        ...
+    
+    @property
+    def audio(self):
+        # return Audio object, not ndarray, to override sample raes TODO see if this makes sense overall
+        return Raw.cache[self._key()]#.audio
+    
+    def generate(self, sample_rate):
+        #return np.copy(self.audio.audio)
+        return self.audio.audio
+    """
+    TODO
+    ####think about this more. here we're copying the audio data,
+    #### but not the audio object. should we copy the audio object instead maybe?
+    we're passing the direct audio buffer.
+    since this eventually goes to audio.from_Array, in which np.copy is called,
+    this SHOULD not cause problems when using the same shell for different copies
+    of the same original signal.
+    also what happens if self.audio already has a sample rate, and the two don't agree?
+    """
+
+
+class WAV(Raw):
+    cache = {}
+    """
+    TODO perhaps make Raw.cache instead
+    (but make it easily extensible for new subclasses of Raw)
+    either way, WAV/Raw objects should not contain
+    the actual audio!
+    just a key that will only be used in generate().
+    this way the object is an empty skeleton.
+    
+    Raw.cache can be a dictionary with types as keys,
+    values are actual caches with keys defined by each subclass individually
+    """
+    
+    def __init__(self, filename):
+        self.key = filename
+        
+        audio = None
+        
+        if self._key() not in Raw.cache:
+            audio = WAV_to_Audio(filename)
+        
+        # TODO copy again? so the cache will be eternally independent?
+        super().__init__(audio)
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
