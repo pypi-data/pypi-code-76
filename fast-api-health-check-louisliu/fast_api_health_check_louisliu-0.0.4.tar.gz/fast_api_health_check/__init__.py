@@ -1,0 +1,1 @@
+from fast_api_health_check.health_check import inject_health_check_api
