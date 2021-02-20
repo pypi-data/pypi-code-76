@@ -1,0 +1,1 @@
+from pycric_predict import cric_predict
