@@ -1,0 +1,4 @@
+from .search_attribute_test import TestSearchAttribute
+from .dict_attribute_test import TestDictAttribute
+from .update_expression_attribute_test import TestUpdateExpressionAttribute
+from .query_expression_attribute_test import TestQueryExpressionAttribute
