@@ -1,0 +1,1 @@
+from visualife.serverside.utils import scorefile_to_json_dictionary
