@@ -1,0 +1,1 @@
+from cric_predict import cric_predict
