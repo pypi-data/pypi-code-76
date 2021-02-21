@@ -1,0 +1,1 @@
+from hdtscraper.main import hdtscraper
