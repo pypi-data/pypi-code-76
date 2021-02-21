@@ -1,0 +1,105 @@
+import gettext
+
+from pulpcore.cli.common.context import (
+    EntityDefinition,
+    PulpEntityContext,
+    PulpRepositoryContext,
+    PulpRepositoryVersionContext,
+)
+
+_ = gettext.gettext
+
+
+class PulpContainerDistributionContext(PulpEntityContext):
+    ENTITY = "container distribution"
+    ENTITIES = "container distributions"
+    HREF = "container_container_distribution_href"
+    LIST_ID = "distributions_container_container_list"
+    READ_ID = "distributions_container_container_read"
+    CREATE_ID = "distributions_container_container_create"
+    UPDATE_ID = "distributions_container_container_partial_update"
+    DELETE_ID = "distributions_container_container_delete"
+
+    def preprocess_body(self, body: EntityDefinition) -> EntityDefinition:
+        body = super().preprocess_body(body)
+        version = body.pop("version", None)
+        if version is not None:
+            repository_href = body.pop("repository")
+            body["repository_version"] = f"{repository_href}versions/{version}/"
+        return body
+
+
+class PulpContainerRemoteContext(PulpEntityContext):
+    ENTITY = "container remote"
+    ENTITIES = "container remotes"
+    HREF = "container_container_remote_href"
+    LIST_ID = "remotes_container_container_list"
+    CREATE_ID = "remotes_container_container_create"
+    UPDATE_ID = "remotes_container_container_partial_update"
+    DELETE_ID = "remotes_container_container_delete"
+
+    def preprocess_body(self, body: EntityDefinition) -> EntityDefinition:
+        body = super().preprocess_body(body)
+        for nullable in [
+            "ca_cert",
+            "client_cert",
+            "client_key",
+            "password",
+            "proxy_url",
+            "username",
+        ]:
+            if body.get(nullable) == "":
+                body[nullable] = None
+        return body
+
+
+class PulpContainerRepositoryVersionContext(PulpRepositoryVersionContext):
+    HREF = "container_container_repository_version_href"
+    REPOSITORY_HREF = "container_container_repository_href"
+    LIST_ID = "repositories_container_container_versions_list"
+    READ_ID = "repositories_container_container_versions_read"
+    DELETE_ID = "repositories_container_container_versions_delete"
+
+
+class PulpContainerPushRepositoryVersionContext(PulpRepositoryVersionContext):
+    HREF = "container_container_push_repository_version_href"
+    REPOSITORY_HREF = "container_container_push_repository_href"
+    LIST_ID = "repositories_container_container_push_versions_list"
+    READ_ID = "repositories_container_container_push_versions_read"
+    DELETE_ID = "repositories_container_container_push_versions_delete"
+
+
+class PulpContainerRepositoryContext(PulpRepositoryContext):
+    HREF = "container_container_repository_href"
+    LIST_ID = "repositories_container_container_list"
+    READ_ID = "repositories_container_container_read"
+    CREATE_ID = "repositories_container_container_create"
+    UPDATE_ID = "repositories_container_container_partial_update"
+    DELETE_ID = "repositories_container_container_delete"
+    SYNC_ID = "repositories_container_container_sync"
+    VERSION_CONTEXT = PulpContainerRepositoryVersionContext
+
+    def preprocess_body(self, body: EntityDefinition) -> EntityDefinition:
+        body = super().preprocess_body(body)
+        if body.get("description") == "":
+            body["description"] = None
+        return body
+
+
+class PulpContainerPushRepositoryContext(PulpRepositoryContext):
+    HREF = "container_container_push_repository_href"
+    LIST_ID = "repositories_container_container_push_list"
+    READ_ID = "repositories_container_container_push_read"
+    # CREATE_ID = "repositories_container_container_push_create"
+    # UPDATE_ID = "repositories_container_container_push_update"
+    # DELETE_ID = "repositories_container_container_push_delete"
+    # Cannot sync a push type repository
+    # TODO Incorporate into capabilities
+    # SYNC_ID = "repositories_container_container_push_sync"
+    VERSION_CONTEXT = PulpContainerPushRepositoryVersionContext
+
+    def preprocess_body(self, body: EntityDefinition) -> EntityDefinition:
+        body = super().preprocess_body(body)
+        if body.get("description") == "":
+            body["description"] = None
+        return body
