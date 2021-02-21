@@ -1,0 +1,31 @@
+from distutils.core import setup
+setup(
+	name = 'pynida',
+	packages = ['pynida'],
+	version = '0.1',
+	license='GPLv3',
+	description = 'In-situ nanoindentation data analysis',
+	author = 'Vasily Lebedev, Anton Poluboiarinov, Daniil Kozlov, Robert Sakaev',
+	author_email = 'vasily.lebedev@ul.ie',
+	url = 'https://github.com/LebedevV/pynida',
+	download_url = 'https://github.com/LebedevV/pynida',
+	keywords = ['Nanomechanics', 'Microscopy', 'in-situ'],
+	install_requires=[
+		'matplotlib',
+		'numpy',
+		'opencv-python',
+		'pandas',
+		'PyQt5',
+		'scipy',
+		'scikit-image>=0.18',
+	],
+	classifiers=[
+		'Development Status :: 3 - Alpha',
+		'Intended Audience :: Science/Research',
+		'Operating System :: OS Independent',
+		'Programming Language :: Python',
+		'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+		'Topic :: Scientific/Engineering',
+		'Programming Language :: Python :: 3',
+	],
+)
