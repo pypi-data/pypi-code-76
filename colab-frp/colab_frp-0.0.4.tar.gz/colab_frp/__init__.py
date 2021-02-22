@@ -1,0 +1,1 @@
+from colab_frp.frp import frp_connect
