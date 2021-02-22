@@ -1,0 +1,1 @@
+https://api-portal.decathlon.net/
