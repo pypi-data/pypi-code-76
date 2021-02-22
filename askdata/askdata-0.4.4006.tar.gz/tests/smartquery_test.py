@@ -1,0 +1,28 @@
+import jsons
+from askdata.smartquery import *
+
+if __name__ == '__main__':
+    field1 = Field(column='{{measure.A}}', aggregation="MAX", dataset='{{dataset.A}}', entityType="P_MEASURE", alias="max_measure")
+    field2 = Field(column='{{dimension.A}}', dataset='{{dataset.B}}', entityType="P_DIMENSION")
+    field3 = Field(column='{{timeDimension.A}}', dataset='{{dataset.C}}', entityType="P_TIMEDIM", aggregation="year")
+    from1 = From('{{dataset.A}}')
+    from2 = From('{{dataset.B}}')
+    from3 = From('{{dataset.C}}')
+    condition1 = Condition(field3, "GOE", ["{{timePeriod.A}}"])
+    condition2 = Condition(field3, "LOE", ["{{timePeriod.B}}"])
+    condition3 = Condition(field1, "EQ", [2000])
+    sorting1 = Sorting("{{measure.A}}", SQLSorting.DESC)
+    query1 = Query(fields=[field1, field2, field3], datasets=[from1, from2, from3], where=[condition1, condition2, condition3],
+                   orderBy=[sorting1], limit=10)
+    smartquery = SmartQuery([query1])
+    dump = jsons.dumps(smartquery)
+    print(dump)
+    smartquery = jsons.loads(dump, SmartQuery)
+    print(smartquery)
+    print(smartquery.queries[0].to_sql())
+    print("ORIGINAL JSON: ", dump)
+    compressed_json = SmartQuery.compress(dump)
+    print("COMPRESSED JSON: ", compressed_json)
+    decompressed_json = SmartQuery.decompress(compressed_json)
+    print("DECOMPRESSED JSON: ", decompressed_json)
+    print(str(dump) == decompressed_json)
