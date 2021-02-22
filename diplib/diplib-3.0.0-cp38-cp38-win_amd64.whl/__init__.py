@@ -1,0 +1,122 @@
+# PyDIP 3.0, Python bindings for DIPlib 3.0
+#
+# (c)2017-2020, Flagship Biosciences, Inc., written by Cris Luengo.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+This module is PyDIP, the Python interface to DIPlib.
+
+See the User Manual online: https://diplib.org/diplib-docs/pydip_user_manual.html
+"""
+
+# (WINDOWS ONLY) First, we make sure that the DIP.dll file is on the PATH
+import os
+if os.name == 'nt' and True == False:
+    pydip_dir = os.path.join("C:/Program Files (x86)/DIPlib", "bin")
+    try:
+        os.add_dll_directory(pydip_dir)
+    except:
+        os.environ["PATH"] += os.pathsep + pydip_dir
+
+# Here we import classes and functions from the binary and the python-code modules into
+# the same namespace.
+try:
+    from .PyDIP_bin import *
+except:
+    if os.name == 'nt' and True == True:
+        print("Could not load PyDIP binary extension. Did you install the Microsoft Visual C++ Redistributable?")
+    raise
+
+from .PyDIP_py import *
+Image.Show = Show
+
+# Here we import PyDIPviewer if it exists
+hasDIPviewer = False
+import importlib.util
+if importlib.util.find_spec('.PyDIPviewer', __name__) is not None:
+    from . import PyDIPviewer as viewer
+    hasDIPviewer = True
+    def ShowModal(*args, **kwargs):
+        viewer.Show(*args, **kwargs)
+        viewer.Spin()
+    viewer.ShowModal = ShowModal
+
+    __ShowViewer = viewer.Show
+    def ShowViewer(*args, **kwargs):
+        """Show an image in a new SliceViewer window.
+        
+        Parameters
+        ----------
+        in : dip.Image
+            Image to show.
+        title : str, optional
+            Window title.
+        position : tuple of int, optional
+            Window position (x and y).
+        size : tuple of int, optional
+            Window size (width and height).
+        operating_point : tuple of float, optional
+            Selected point.
+        element : int, optional
+            Selected tensor element.
+        zoom : tuple of float, optional
+            Zoom factor.
+        origin : tuple of int, optional
+            Pixel displayed at top left of window.
+        mapping_range : tuple of float, optional
+            Black and white levels.
+        mapping : {"unit", "angle", "8bit", "lin", "base", "log"}, optional
+            Automatic mapping range setting.
+        lut : {"original", "ternary", "grey", "sequential", "divergent", "periodic", "labels"}, optional
+            Color lookup table setting.
+
+        Returns
+        -------
+        dip.viewer.SliceViewer
+            SliceViewer object for further interaction.
+        """
+        showargs = dict(filter(lambda elem: elem[0] == 'in' or elem[0] == 'title', kwargs.items()))
+        v = __ShowViewer(*args, **showargs)
+
+        for elem in kwargs.items():
+            if elem[0] == 'in' or elem[0] == 'title':
+                continue
+            elif elem[0] == 'position':
+                v.SetPosition(elem[1][0], elem[1][1])
+            elif elem[0] == 'size':
+                v.SetSize(elem[1][0], elem[1][1])
+            else:
+                setattr(v, elem[0], elem[1])
+
+        return v
+
+    viewer.Show = ShowViewer
+
+# Here we import PyDIPjavaio if it exists
+hasDIPjavaio = False
+if importlib.util.find_spec('.PyDIPjavaio', __name__) is not None:
+    lib = None
+    try:
+        from . import loadjvm
+        lib = loadjvm.load_jvm()
+        from . import PyDIPjavaio as javaio
+        ImageRead = javaio.ImageRead
+        hasDIPjavaio = True
+    except Exception as e:
+        print("PyDIPjavaio unavailable:")
+        print(e)
+        if lib:
+            print("\nload_jvm returned '" + lib + "'")
+        else:
+            print("\nlibjvm not found")
