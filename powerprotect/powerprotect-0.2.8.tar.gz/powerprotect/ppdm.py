@@ -1,0 +1,166 @@
+import requests
+import json
+import urllib3
+from powerprotect import get_module_logger
+from powerprotect import helpers
+from powerprotect import exceptions
+
+urllib3.disable_warnings()
+
+ppdm_logger = get_module_logger(__name__)
+ppdm_logger.propagate = False
+
+
+"""
+This module handles Dell Powerprotect. Current scope is to handle
+authentication, protection rules and protection policy CRUD
+
+# TODO
+
+ - Add protection policy CRUD
+
+"""
+
+
+class Ppdm:
+
+    def __init__(self, **kwargs):
+        """Create a PPDM object that is authenticated"""
+        try:
+            self.server = kwargs['server']
+            self.__password = kwargs.get('password', "")
+            self.username = kwargs.get('username', "admin")
+            self.headers = {'Content-Type': 'application/json'}
+            self._token = kwargs.get('token', "")
+            if self._token:
+                self.headers.update({'Authorization': self._token})
+        except KeyError as e:
+            ppdm_logger.error(f"Missing required field: {e}")
+            raise exceptions.PpdmException(f"Missing required field: {e}")
+
+    def login(self):
+        """Login method that extends the headers property to include the
+        authorization key/value"""
+        ppdm_logger.debug("Method: __login")
+        return_value = helpers.ReturnValue()
+        body = {"username": self.username, "password": self.__password}
+        response = self._rest_post("/login", body)
+        if response.ok is False:
+            ppdm_logger.error("Authentication Error")
+            return_value.success = False
+            return_value.fail_msg = response.json()
+            return_value.status_code = response.status_code
+        elif response.ok:
+            return_value.success = True
+            return_value.response = response.json()
+            return_value.status_code = response.status_code
+            self.__token = response.json()['access_token']
+            self.headers.update(
+                {'Authorization': response.json()['access_token']})
+        return return_value
+
+    def get_protection_policies(self):
+        ppdm_logger.debug("Method: get_protection_policies")
+        response = self._rest_get("/protection-policies")
+        return response.json()['content']
+
+    def get_protection_policy_by_name(self, name):
+        ppdm_logger.debug("Method: get_protection_policy_by_name")
+        return_value = helpers.ReturnValue()
+        response = self._rest_get("/protection-policies"
+                                  f"?filter=name%20eq%20%22{name}%22")
+        if not response.ok:
+            return_value.success = False
+            return_value.fail_msg = response.json()
+            return_value.status_code = response.status_code
+        if (not response.json()['content'] and
+                return_value.success is not False):
+            err_msg = f"protection policy not found: {name}"
+            ppdm_logger.info(err_msg)
+            return_value.success = True
+            return_value.status_code = response.status_code
+            return_value.response = {}
+        if return_value.success is None:
+            return_value.success = True
+            return_value.response = response.json()['content'][0]
+            return_value.status_code = response.status_code
+        return return_value
+
+    def __get_protection_rules(self):
+        ppdm_logger.debug("Method: __get_protection_rules")
+        return_value = helpers.ReturnValue()
+        response = self._rest_get("/protection-rules")
+        if response.ok:
+            return_value.response = response.json()
+            return_value.success = True
+        elif not response.ok:
+            return_value.success = False
+            return_value.fail_msg = 'API Failure'
+            return_value.status_code = response.status_code
+        return return_value
+
+    def _rest_get(self, uri):
+        ppdm_logger.debug("Method: _rest_get")
+        response = requests.get(f"https://{self.server}:8443/api/v2"
+                                f"{uri}",
+                                verify=False,
+                                headers=self.headers)
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            ppdm_logger.error(f"Reason: {response.text}")
+            ppdm_logger.error(f"Error: {e}")
+        ppdm_logger.debug(f"URL: https://{self.server}:8443/api/v2{uri}")
+        ppdm_logger.debug(f"API Response OK?: {response.ok}")
+        ppdm_logger.debug(f"API Status Code: {response.status_code}")
+        return response
+
+    def _rest_delete(self, uri):
+        ppdm_logger.debug("Method: _rest_delete")
+        response = requests.delete(f"https://{self.server}:8443/api/v2"
+                                   f"{uri}",
+                                   verify=False,
+                                   headers=self.headers)
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            ppdm_logger.error(f"Reason: {response.text}")
+            ppdm_logger.error(f"Error: {e}")
+        ppdm_logger.debug(f"URL: https://{self.server}:8443/api/v2{uri}")
+        ppdm_logger.debug(f"API Response OK?: {response.ok}")
+        ppdm_logger.debug(f"API Status Code: {response.status_code}")
+        return response
+
+    def _rest_post(self, uri, body):
+        ppdm_logger.debug("Method: _rest_post")
+        response = requests.post(f"https://{self.server}:8443/api/v2"
+                                 f"{uri}",
+                                 verify=False,
+                                 data=json.dumps(body),
+                                 headers=self.headers)
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            ppdm_logger.error(f"Reason: {response.text}")
+            ppdm_logger.error(f"Error: {e}")
+        ppdm_logger.debug(f"URL: https://{self.server}:8443/api/v2{uri}")
+        ppdm_logger.debug(f"API Response OK?: {response.ok}")
+        ppdm_logger.debug(f"API Status Code: {response.status_code}")
+        return response
+
+    def _rest_put(self, uri, body):
+        ppdm_logger.debug("Method: _rest_put")
+        response = requests.put(f"https://{self.server}:8443/api/v2"
+                                f"{uri}",
+                                verify=False,
+                                data=json.dumps(body),
+                                headers=self.headers)
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            ppdm_logger.error(f"Reason: {response.text}")
+            ppdm_logger.error(f"Error: {e}")
+        ppdm_logger.debug(f"URL: https://{self.server}:8443/api/v2{uri}")
+        ppdm_logger.debug(f"API Response OK?: {response.ok}")
+        ppdm_logger.debug(f"API Status Code: {response.status_code}")
+        return response
