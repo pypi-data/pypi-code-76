@@ -1,0 +1,43 @@
+﻿'''_5470.py
+
+ExcitationSourceSelectionGroup
+'''
+
+
+from typing import List
+
+from mastapy.system_model.analyses_and_results.gear_whine_analyses.whine_analyses_results import _5469
+from mastapy._internal import constructor, conversion
+from mastapy._internal.python_net import python_net_import
+
+_EXCITATION_SOURCE_SELECTION_GROUP = python_net_import('SMT.MastaAPI.SystemModel.AnalysesAndResults.GearWhineAnalyses.WhineAnalysesResults', 'ExcitationSourceSelectionGroup')
+
+
+__docformat__ = 'restructuredtext en'
+__all__ = ('ExcitationSourceSelectionGroup',)
+
+
+class ExcitationSourceSelectionGroup(_5469.ExcitationSourceSelectionBase):
+    '''ExcitationSourceSelectionGroup
+
+    This is a mastapy class.
+    '''
+
+    TYPE = _EXCITATION_SOURCE_SELECTION_GROUP
+
+    __hash__ = None
+
+    def __init__(self, instance_to_wrap: 'ExcitationSourceSelectionGroup.TYPE'):
+        super().__init__(instance_to_wrap)
+        self._freeze()
+
+    @property
+    def sub_items(self) -> 'List[_5469.ExcitationSourceSelectionBase]':
+        '''List[ExcitationSourceSelectionBase]: 'SubItems' is the original name of this property.
+
+        Note:
+            This property is readonly.
+        '''
+
+        value = conversion.pn_to_mp_objects_in_list(self.wrapped.SubItems, constructor.new(_5469.ExcitationSourceSelectionBase))
+        return value
