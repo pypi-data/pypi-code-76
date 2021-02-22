@@ -1,0 +1,85 @@
+# flake8: noqa
+
+# import all models into this package
+# if you have many models here with many references from one model to another this may
+# raise a RecursionError
+# to avoid this, import only the models that you directly need like:
+# from from data_repo_client.model.pet import Pet
+# or import this package, but before doing it, use:
+# import sys
+# sys.setrecursionlimit(n)
+
+from data_repo_client.model.asset_model import AssetModel
+from data_repo_client.model.asset_table_model import AssetTableModel
+from data_repo_client.model.billing_profile_model import BillingProfileModel
+from data_repo_client.model.billing_profile_request_model import BillingProfileRequestModel
+from data_repo_client.model.billing_profile_update_model import BillingProfileUpdateModel
+from data_repo_client.model.bulk_load_array_request_model import BulkLoadArrayRequestModel
+from data_repo_client.model.bulk_load_array_result_model import BulkLoadArrayResultModel
+from data_repo_client.model.bulk_load_file_model import BulkLoadFileModel
+from data_repo_client.model.bulk_load_file_result_model import BulkLoadFileResultModel
+from data_repo_client.model.bulk_load_file_state import BulkLoadFileState
+from data_repo_client.model.bulk_load_history_model import BulkLoadHistoryModel
+from data_repo_client.model.bulk_load_request_model import BulkLoadRequestModel
+from data_repo_client.model.bulk_load_result_model import BulkLoadResultModel
+from data_repo_client.model.column_model import ColumnModel
+from data_repo_client.model.config_enable_model import ConfigEnableModel
+from data_repo_client.model.config_fault_counted_model import ConfigFaultCountedModel
+from data_repo_client.model.config_fault_model import ConfigFaultModel
+from data_repo_client.model.config_group_model import ConfigGroupModel
+from data_repo_client.model.config_list_model import ConfigListModel
+from data_repo_client.model.config_model import ConfigModel
+from data_repo_client.model.config_parameter_model import ConfigParameterModel
+from data_repo_client.model.drs_access_method import DRSAccessMethod
+from data_repo_client.model.drs_access_url import DRSAccessURL
+from data_repo_client.model.drs_checksum import DRSChecksum
+from data_repo_client.model.drs_contents_object import DRSContentsObject
+from data_repo_client.model.drs_error import DRSError
+from data_repo_client.model.drs_object import DRSObject
+from data_repo_client.model.drs_service_info import DRSServiceInfo
+from data_repo_client.model.data_deletion_gcs_file_model import DataDeletionGcsFileModel
+from data_repo_client.model.data_deletion_request import DataDeletionRequest
+from data_repo_client.model.data_deletion_table_model import DataDeletionTableModel
+from data_repo_client.model.dataset_model import DatasetModel
+from data_repo_client.model.dataset_request_model import DatasetRequestModel
+from data_repo_client.model.dataset_specification_model import DatasetSpecificationModel
+from data_repo_client.model.dataset_summary_model import DatasetSummaryModel
+from data_repo_client.model.date_partition_options_model import DatePartitionOptionsModel
+from data_repo_client.model.delete_response_model import DeleteResponseModel
+from data_repo_client.model.directory_detail_model import DirectoryDetailModel
+from data_repo_client.model.enumerate_billing_profile_model import EnumerateBillingProfileModel
+from data_repo_client.model.enumerate_dataset_model import EnumerateDatasetModel
+from data_repo_client.model.enumerate_snapshot_model import EnumerateSnapshotModel
+from data_repo_client.model.error_model import ErrorModel
+from data_repo_client.model.file_detail_model import FileDetailModel
+from data_repo_client.model.file_load_model import FileLoadModel
+from data_repo_client.model.file_model import FileModel
+from data_repo_client.model.file_model_type import FileModelType
+from data_repo_client.model.ingest_request_model import IngestRequestModel
+from data_repo_client.model.ingest_response_model import IngestResponseModel
+from data_repo_client.model.int_partition_options_model import IntPartitionOptionsModel
+from data_repo_client.model.job_model import JobModel
+from data_repo_client.model.object_name_property import ObjectNameProperty
+from data_repo_client.model.policy_member_request import PolicyMemberRequest
+from data_repo_client.model.policy_model import PolicyModel
+from data_repo_client.model.policy_response import PolicyResponse
+from data_repo_client.model.relationship_model import RelationshipModel
+from data_repo_client.model.relationship_term_model import RelationshipTermModel
+from data_repo_client.model.repository_configuration_model import RepositoryConfigurationModel
+from data_repo_client.model.repository_status_model import RepositoryStatusModel
+from data_repo_client.model.repository_status_model_systems import RepositoryStatusModelSystems
+from data_repo_client.model.short_id_property import ShortIdProperty
+from data_repo_client.model.snapshot_model import SnapshotModel
+from data_repo_client.model.snapshot_request_asset_model import SnapshotRequestAssetModel
+from data_repo_client.model.snapshot_request_contents_model import SnapshotRequestContentsModel
+from data_repo_client.model.snapshot_request_model import SnapshotRequestModel
+from data_repo_client.model.snapshot_request_query_model import SnapshotRequestQueryModel
+from data_repo_client.model.snapshot_request_row_id_model import SnapshotRequestRowIdModel
+from data_repo_client.model.snapshot_request_row_id_table_model import SnapshotRequestRowIdTableModel
+from data_repo_client.model.snapshot_source_model import SnapshotSourceModel
+from data_repo_client.model.snapshot_summary_model import SnapshotSummaryModel
+from data_repo_client.model.table_model import TableModel
+from data_repo_client.model.unique_id_property import UniqueIdProperty
+from data_repo_client.model.upgrade_model import UpgradeModel
+from data_repo_client.model.upgrade_response_model import UpgradeResponseModel
+from data_repo_client.model.user_status_info import UserStatusInfo
