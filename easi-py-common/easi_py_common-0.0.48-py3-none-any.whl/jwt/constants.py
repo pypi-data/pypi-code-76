@@ -1,0 +1,5 @@
+class JwtConstants:
+    DEFAULT_EXPIRED_IN = 7200
+    DEFAULT_REFRESH_EXPIRED_IN = 3600 * 24 * 30
+    # oauth 加密方式
+    SERIALIZER_ALGORITHM_NAME = 'HS512'
