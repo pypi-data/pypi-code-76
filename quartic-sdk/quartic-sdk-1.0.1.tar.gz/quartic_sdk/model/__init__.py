@@ -1,0 +1,1 @@
+from quartic_sdk.model.BaseQuarticModel import BaseQuarticModel
