@@ -1,0 +1,2 @@
+class ExceptionMessages:
+    pass
