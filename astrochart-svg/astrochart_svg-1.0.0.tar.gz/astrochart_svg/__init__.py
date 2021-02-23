@@ -1,0 +1,1 @@
+from astrochart_svg import MakeInstance
