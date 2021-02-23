@@ -1,0 +1,106 @@
+import numpy as np
+from AnyQt.QtCore import Qt
+
+from Orange.util import scale
+from Orange.misc import DistMatrix
+from Orange.widgets import widget, gui, settings
+from Orange.widgets.utils.widgetpreview import WidgetPreview
+from Orange.widgets.widget import Input, Output
+from Orange.i18n_config import *
+
+
+def __(key):
+    return i18n.t("widget.unsupervised.unsupervised.owdistancetransformation." + key)
+
+
+class OWDistanceTransformation(widget.OWWidget):
+    name = __("name")
+    description = __("desc")
+    icon = "icons/DistancesTransformation.svg"
+    keywords = []
+
+    class Inputs:
+        distances = Input('Distances', DistMatrix, label=i18n.t("common.general.distance"))
+
+    class Outputs:
+        distances = Output('Distances', DistMatrix, dynamic=False, label=i18n.t("common.general.distance"))
+
+    want_main_area = False
+    resizing_enabled = False
+    buttons_area_orientation = Qt.Vertical
+
+    normalization_method = settings.Setting(0)
+    inversion_method = settings.Setting(0)
+    autocommit = settings.Setting(True)
+
+    normalization_options = (
+        (__("row.no_normalization"), lambda x: x),
+        (__("row.to_interval") + "[0, 1]", lambda x: scale(x, min=0, max=1)),
+        (__("row.to_interval") + "[-1, 1]", lambda x: scale(x, min=-1, max=1)),
+        (__("row.sigmoid_function"), lambda x: 1 / (1 + np.exp(-x))),
+    )
+
+    inversion_options = (
+        (__("row.sigmoid_function"), lambda x: x),
+        ("-X", lambda x: -x),
+        ("1 - X", lambda x: 1 - x),
+        ("max(X) - X", lambda x: np.max(x) - x),
+        ("1/X", lambda x: 1 / x),
+    )
+
+    def __init__(self):
+        super().__init__()
+
+        self.data = None
+
+        gui.radioButtons(self.controlArea, self, "normalization_method",
+                         box=__("box_normalization"),
+                         btnLabels=[x[0] for x in self.normalization_options],
+                         callback=self._invalidate)
+
+        gui.radioButtons(self.controlArea, self, "inversion_method",
+                         box=__("box_inversion"),
+                         btnLabels=[x[0] for x in self.inversion_options],
+                         callback=self._invalidate)
+
+        gui.auto_apply(self.controlArea, self, "autocommit")
+
+    @Inputs.distances
+    def set_data(self, data):
+        self.data = data
+        self.unconditional_commit()
+
+    def commit(self):
+        distances = self.data
+        if distances is not None:
+            # normalize
+            norm = self.normalization_options[self.normalization_method][1]
+            distances = norm(distances)
+
+            # invert
+            inv = self.inversion_options[self.inversion_method][1]
+            distances = inv(distances)
+        self.Outputs.distances.send(distances)
+
+    def send_report(self):
+        norm, normopt = self.normalization_method, self.normalization_options
+        inv, invopt = self.inversion_method, self.inversion_options
+        parts = []
+        if inv:
+            parts.append('inversion ({})'.format(invopt[inv][0]))
+        if norm:
+            parts.append('normalization ({})'.format(normopt[norm][0]))
+        self.report_items(
+            'Model parameters',
+            {'Transformation': ', '.join(parts).capitalize() or 'None'})
+
+    def _invalidate(self):
+        self.commit()
+
+
+if __name__ == "__main__":  # pragma: no cover
+    import Orange.distance
+
+    data = Orange.data.Table("iris")
+    dist = Orange.distance.Euclidean(data)
+    WidgetPreview(OWDistanceTransformation).run(dist)
