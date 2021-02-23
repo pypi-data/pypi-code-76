@@ -1,0 +1,5 @@
+__author__ = "Larry Shen"
+__author_email__ = "larry.shen@nxp.com"
+__description__ = "NXP lite tools bundle"
+__license__ = "MIT"
+__version__ = "0.2.0"
