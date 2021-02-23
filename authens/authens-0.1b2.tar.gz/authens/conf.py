@@ -1,0 +1,3 @@
+LDAP_SERVER_URL = "ldaps://ldap.spi.ens.fr:636"
+AUTHENS_USE_OLDCAS = True
+# TODO: CAS_SERVER_URL
