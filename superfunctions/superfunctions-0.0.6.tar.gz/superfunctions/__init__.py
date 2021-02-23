@@ -1,0 +1,1 @@
+from superfunctions import decorate_all_modules
