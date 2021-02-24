@@ -1,0 +1,10 @@
+scikit-learn
+matplotlib
+tensorflow
+seaborn
+pycallgraph2
+joblib
+PyYAML
+twine
+lightgbm
+mlflow
