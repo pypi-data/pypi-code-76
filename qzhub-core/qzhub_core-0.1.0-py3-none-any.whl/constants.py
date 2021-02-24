@@ -1,0 +1,1 @@
+DEPRECATION_MESSAGE = "Deprecated call to %s, use %s instead!"
