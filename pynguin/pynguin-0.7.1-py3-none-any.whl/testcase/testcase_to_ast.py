@@ -1,0 +1,79 @@
+#  This file is part of Pynguin.
+#
+#  SPDX-FileCopyrightText: 2019–2021 Pynguin Contributors
+#
+#  SPDX-License-Identifier: LGPL-3.0-or-later
+#
+"""Provides a visitor that transforms test cases to asts."""
+from ast import stmt
+from typing import List, Set
+
+import pynguin.assertion.assertion_to_ast as ata
+import pynguin.testcase.defaulttestcase as dtc
+import pynguin.testcase.statement_to_ast as stmt_to_ast
+from pynguin.testcase.testcasevisitor import TestCaseVisitor
+from pynguin.utils.namingscope import NamingScope
+
+
+class TestCaseToAstVisitor(TestCaseVisitor):
+    """Transforms an arbitrary number of test cases to AST statements.
+
+    The modules that are required by the individual test cases are gathered and given
+    an alias.
+    """
+
+    def __init__(self, wrap_code: bool = False) -> None:
+        """The module aliases are shared between test cases.
+
+        Args:
+            wrap_code: Whether or not exported code shall be wrapped
+        """
+        self._module_aliases = NamingScope("module")
+        # Common modules (e.g. math) are not aliased.
+        self._common_modules: Set[str] = set()
+        self._test_case_asts: List[List[stmt]] = []
+        self._wrap_code = wrap_code
+
+    def visit_default_test_case(self, test_case: dtc.DefaultTestCase) -> None:
+        variables = NamingScope()
+        statement_visitor = stmt_to_ast.StatementToAstVisitor(
+            self._module_aliases, variables, self._wrap_code
+        )
+        for statement in test_case.statements:
+            statement.accept(statement_visitor)
+            # TODO(fk) better way. Nest visitors?
+            assertion_visitor = ata.AssertionToAstVisitor(
+                self._common_modules, variables
+            )
+            for assertion in statement.assertions:
+                assertion.accept(assertion_visitor)
+            statement_visitor.append_nodes(assertion_visitor.nodes)
+        self._test_case_asts.append(statement_visitor.ast_nodes)
+
+    @property
+    def test_case_asts(self) -> List[List[stmt]]:
+        """Provides the generated asts for each test case.
+
+        Returns:
+            A list of the generated ASTs for each test case
+        """
+        return self._test_case_asts
+
+    @property
+    def module_aliases(self) -> NamingScope:
+        """Provides the module aliases that were used when transforming all test cases.
+
+        Returns:
+            The module aliases
+        """
+        return self._module_aliases
+
+    @property
+    def common_modules(self) -> Set[str]:
+        """Provides the common modules that were used when transforming all test cases.
+        This is used, because common modules (e.g., math) should not be aliased.
+
+        Returns:
+            A set of the modules names
+        """
+        return self._common_modules
