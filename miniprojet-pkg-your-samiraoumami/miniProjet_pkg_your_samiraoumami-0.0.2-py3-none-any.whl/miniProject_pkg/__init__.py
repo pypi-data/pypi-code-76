@@ -1,0 +1,1 @@
+name="miniProjet_pkg"
