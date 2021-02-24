@@ -1,0 +1,5 @@
+__title__ = 'ap-motif'
+__version__ = '0.1.0'
+__description__ = 'Motif is an opinionated templating toolkit built in Python.'
+__author__ = 'Anna Poulakos'
+__authoremail__ = 'anna.poulakos@gmail.com' 
