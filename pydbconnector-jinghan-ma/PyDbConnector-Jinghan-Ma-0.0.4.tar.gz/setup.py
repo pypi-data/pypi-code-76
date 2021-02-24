@@ -1,0 +1,70 @@
+import setuptools
+
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
+setuptools.setup(
+    name="PyDbConnector-Jinghan-Ma", # Replace with your own username
+    version="0.0.4",
+    author="Jinghan Ma",
+    author_email="jinghan.m@helium10.com",
+    description="py package for h10 db connection",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/jm-h10/utility_jma/tree/main/PyDbConnector",
+    install_requires=[
+        'asn1crypto==1.4.0',
+        'azure-common==1.1.25',
+        'azure-core==1.8.2',
+        'azure-storage-blob==12.5.0',
+        'bcrypt==3.2.0',
+        'boto3==1.15.18',
+        'botocore==1.18.18',
+        'certifi==2020.6.20',
+        'cffi==1.14.3',
+        'chardet==3.0.4',
+        'clickhouse-driver==0.2.0',
+        'cryptography==2.9.2',
+        'elasticsearch==7.11.0',
+        'idna==2.10',
+        'isodate==0.6.0',
+        'jmespath==0.10.0',
+        'JPype1==1.2.1',
+        'msrest==0.6.19',
+        'numpy==1.20.1',
+        'oauthlib==3.1.0',
+        'oscrypto==1.2.1',
+        'pandas==1.2.2',
+        'paramiko==2.7.2',
+        'psycopg2==2.8.6',
+        'pyathenajdbc==3.0.1',
+        'pycparser==2.20',
+        'pycryptodomex==3.9.8',
+        'PyJWT==1.7.1',
+        'PyMySQL==1.0.2',
+        'PyNaCl==1.4.0',
+        'pyOpenSSL==19.1.0',
+        'python-dateutil==2.8.1',
+        'pytz==2020.1',
+        'requests==2.23.0',
+        'requests-oauthlib==1.3.0',
+        's3transfer==0.3.3',
+        'six==1.15.0',
+        'snowflake-connector-python==2.3.10',
+        'snowflake-sqlalchemy==1.2.4',
+        'SQLAlchemy==1.3.23',
+        'sshtunnel==0.4.0',
+        'tzlocal==2.1',
+        'urllib3==1.25.11'
+    ],
+    project_urls={
+        "Bug Tracker":"https://github.com/jm-h10/utility_jma/tree/main/PyDbConnector"
+    },
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    packages=setuptools.find_packages(),
+    python_requires='>=3.6',
+)
